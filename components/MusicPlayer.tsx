@@ -12,14 +12,13 @@ export default function MusicPlayer() {
 
   useEffect(() => {
     // List your MP3 files here (put them in public/music/)
-    const songs = [
-      '../public/music/song1.mp3',
-      '../public/music/song2.mp3',
-      '../public/music/song3.mp3',
-      '../public/music/song3.mp4',
-      '../public/music/song3.mp5',
-      // Add more songs here
-    ];
+        const songs = [
+        '/music/song1.mp3',  // ✅ CORRECT
+        '/music/song2.mp3',
+        '/music/song3.mp3',
+        '/music/song4.mp3',
+        '/music/song5.mp3',
+        ];
 
     musicPlayer.initialize(songs);
     setIsInitialized(true);
