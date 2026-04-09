@@ -1,68 +1,90 @@
-import fs from 'fs';
-import path from 'path';
+import pg from 'pg';
+const { Pool } = pg;
 
-const DB_PATH = path.join(process.cwd(), 'data', 'db.json');
+let pool: pg.Pool | null = null;
 
-interface Database {
-  users: any[];
-  gameHistory: any[];
+function getPool() {
+  if (!pool) {
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
+    });
+  }
+  return pool;
 }
 
-// Ensure data directory exists
-const ensureDataDir = () => {
-  const dataDir = path.join(process.cwd(), 'data');
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-};
+export interface User {
+  id: string;
+  username: string;
+  password: string;
+  created_at?: Date;
+}
 
-// Read database
-export const readDB = (): Database => {
-  ensureDataDir();
-  
-  if (!fs.existsSync(DB_PATH)) {
-    const initialDB: Database = { users: [], gameHistory: [] };
-    fs.writeFileSync(DB_PATH, JSON.stringify(initialDB, null, 2));
-    return initialDB;
-  }
-  
-  const data = fs.readFileSync(DB_PATH, 'utf-8');
-  return JSON.parse(data);
-};
+export interface GameHistory {
+  id: string;
+  user_id: string;
+  game_type: string;
+  opponent_name: string;
+  opponent_id?: string;
+  my_score: number;
+  opponent_score: number;
+  result: 'win' | 'loss' | 'draw';
+  played_at: number;
+  room_code: string;
+  created_at?: Date;
+}
 
-// Write database
-export const writeDB = (db: Database) => {
-  ensureDataDir();
-  fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
-};
+export const db = {
+  async getUser(username: string): Promise<User | null> {
+    const pool = getPool();
+    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    return result.rows[0] || null;
+  },
 
-// User operations
-export const findUserByEmail = (email: string) => {
-  const db = readDB();
-  return db.users.find(u => u.email === email);
-};
+  async getUserById(id: string): Promise<User | null> {
+    const pool = getPool();
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    return result.rows[0] || null;
+  },
 
-export const findUserById = (id: string) => {
-  const db = readDB();
-  return db.users.find(u => u.id === id);
-};
+  async createUser(user: User): Promise<User> {
+    const pool = getPool();
+    const result = await pool.query(
+      'INSERT INTO users (id, username, password) VALUES ($1, $2, $3) RETURNING *',
+      [user.id, user.username, user.password]
+    );
+    return result.rows[0];
+  },
 
-export const createUser = (user: any) => {
-  const db = readDB();
-  db.users.push(user);
-  writeDB(db);
-  return user;
-};
+  async getGameHistory(userId: string): Promise<GameHistory[]> {
+    const pool = getPool();
+    const result = await pool.query(
+      'SELECT * FROM game_history WHERE user_id = $1 ORDER BY played_at DESC',
+      [userId]
+    );
+    return result.rows;
+  },
 
-// Game history operations
-export const addGameHistory = (game: any) => {
-  const db = readDB();
-  db.gameHistory.push(game);
-  writeDB(db);
-  return game;
-};
-
-export const getUserGameHistory = (userId: string) => {
-  const db = readDB();
-  return db.gameHistory.filter(g => g.userId === userId);
+  async addGameHistory(game: GameHistory): Promise<GameHistory> {
+    const pool = getPool();
+    const result = await pool.query(
+      `INSERT INTO game_history 
+       (id, user_id, game_type, opponent_name, opponent_id, my_score, opponent_score, result, played_at, room_code) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+       RETURNING *`,
+      [
+        game.id,
+        game.user_id,
+        game.game_type,
+        game.opponent_name,
+        game.opponent_id,
+        game.my_score,
+        game.opponent_score,
+        game.result,
+        game.played_at,
+        game.room_code,
+      ]
+    );
+    return result.rows[0];
+  },
 };
