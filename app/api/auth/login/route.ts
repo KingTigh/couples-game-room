@@ -1,52 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findUserByEmail } from '@/lib/db';
+import { db } from '@/lib/db';
 import { comparePassword, generateToken } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json();
+    const { username, password } = await request.json();
 
-    // Validation
-    if (!email || !password) {
+    if (!username || !password) {
       return NextResponse.json(
-        { success: false, error: 'Email and password are required' },
+        { success: false, error: 'Username and password are required' },
         { status: 400 }
       );
     }
 
-    // Find user
-    const user = findUserByEmail(email);
+    const user = await db.getUser(username);
+
     if (!user) {
       return NextResponse.json(
-        { success: false, error: 'Invalid email or password' },
+        { success: false, error: 'Invalid username or password' },
         { status: 401 }
       );
     }
 
-    // Check password
     const isValidPassword = await comparePassword(password, user.password);
+
     if (!isValidPassword) {
       return NextResponse.json(
-        { success: false, error: 'Invalid email or password' },
+        { success: false, error: 'Invalid username or password' },
         { status: 401 }
       );
     }
 
-    // Generate token
-    const token = generateToken(user.id);
-
-    // Return user without password
-    const { password: _, ...userWithoutPassword } = user;
+    const token = generateToken(user.id, user.username);
 
     return NextResponse.json({
       success: true,
-      user: userWithoutPassword,
       token,
+      user: {
+        id: user.id,
+        username: user.username,
+      },
     });
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(
-      { success: false, error: 'Server error' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

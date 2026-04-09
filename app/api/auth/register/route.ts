@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { nanoid } from 'nanoid';
-import { findUserByEmail, createUser } from '@/lib/db';
+import { db } from '@/lib/db';
 import { hashPassword, generateToken } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, username, password } = await request.json();
+    const { username, password } = await request.json();
 
-    // Validation
-    if (!email || !username || !password) {
+    if (!username || !password) {
       return NextResponse.json(
-        { success: false, error: 'All fields are required' },
+        { success: false, error: 'Username and password are required' },
         { status: 400 }
       );
     }
@@ -22,44 +21,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user exists
-    const existingUser = findUserByEmail(email);
+    const existingUser = await db.getUser(username);
+
     if (existingUser) {
       return NextResponse.json(
-        { success: false, error: 'Email already registered' },
-        { status: 400 }
+        { success: false, error: 'Username already exists' },
+        { status: 409 }
       );
     }
 
-    // Hash password
     const hashedPassword = await hashPassword(password);
+    const userId = nanoid();
 
-    // Create user
-    const user = {
-      id: nanoid(),
-      email,
+    const user = await db.createUser({
+      id: userId,
       username,
       password: hashedPassword,
-      createdAt: Date.now(),
-    };
+    });
 
-    createUser(user);
-
-    // Generate token
-    const token = generateToken(user.id);
-
-    // Return user without password
-    const { password: _, ...userWithoutPassword } = user;
+    const token = generateToken(user.id, user.username);
 
     return NextResponse.json({
       success: true,
-      user: userWithoutPassword,
       token,
+      user: {
+        id: user.id,
+        username: user.username,
+      },
     });
   } catch (error) {
-    console.error('Register error:', error);
+    console.error('Registration error:', error);
     return NextResponse.json(
-      { success: false, error: 'Server error' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

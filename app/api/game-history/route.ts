@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { addGameHistory, getUserGameHistory } from '@/lib/db';
+import { db } from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
 
 // Get user's game history
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
+    const authHeader = request.headers.get('Authorization');
+    
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -14,25 +15,25 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const payload = verifyToken(token);
+    const decoded = verifyToken(token);
 
-    if (!payload) {
+    if (!decoded) {
       return NextResponse.json(
         { success: false, error: 'Invalid token' },
         { status: 401 }
       );
     }
 
-    const history = getUserGameHistory(payload.userId);
+    const history = await db.getGameHistory(decoded.userId);
 
     return NextResponse.json({
       success: true,
       history,
     });
   } catch (error) {
-    console.error('Get history error:', error);
+    console.error('Get game history error:', error);
     return NextResponse.json(
-      { success: false, error: 'Server error' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -41,7 +42,8 @@ export async function GET(request: NextRequest) {
 // Add game to history
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
+    const authHeader = request.headers.get('Authorization');
+    
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -50,9 +52,9 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    const payload = verifyToken(token);
+    const decoded = verifyToken(token);
 
-    if (!payload) {
+    if (!decoded) {
       return NextResponse.json(
         { success: false, error: 'Invalid token' },
         { status: 401 }
@@ -61,29 +63,19 @@ export async function POST(request: NextRequest) {
 
     const gameData = await request.json();
 
-    const game = {
-      id: gameData.id,
-      userId: payload.userId,
-      gameType: gameData.gameType,
-      opponentName: gameData.opponentName,
-      opponentId: gameData.opponentId,
-      myScore: gameData.myScore,
-      opponentScore: gameData.opponentScore,
-      result: gameData.result,
-      playedAt: gameData.playedAt,
-      roomCode: gameData.roomCode,
-    };
-
-    addGameHistory(game);
+    const game = await db.addGameHistory({
+      ...gameData,
+      user_id: decoded.userId,
+    });
 
     return NextResponse.json({
       success: true,
       game,
     });
   } catch (error) {
-    console.error('Add history error:', error);
+    console.error('Add game history error:', error);
     return NextResponse.json(
-      { success: false, error: 'Server error' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
