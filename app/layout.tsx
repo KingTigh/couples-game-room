@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import MusicPlayer from "../components/MusicPlayer";
 
 export const metadata: Metadata = {
   title: "Game Room - Play Together",
@@ -32,6 +33,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         {children}
+        <MusicPlayer />
       </body>
     </html>
   );
