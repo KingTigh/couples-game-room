@@ -109,30 +109,30 @@ export default function Home() {
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
       </div>
 
-      <div className="relative z-10 container mx-auto px-4 py-8 max-w-6xl">
+      <div className="relative z-10 container mx-auto px-4 py-4 sm:py-8 max-w-6xl">
         {/* Header */}
-        <div className="text-center mb-12 animate-fade-in">
+        <div className="text-center mb-8 sm:mb-12 animate-fade-in">
           {/* Login/User Section */}
           <div className="flex items-center justify-end mb-4 gap-3">
             {isClient && isAuthenticated() ? (
               <>
                 <button
                   onClick={() => router.push('/history')}
-                  className="bg-white/10 backdrop-blur-lg border border-white/20 text-white px-6 py-3 rounded-xl hover:bg-white/20 transition-all flex items-center gap-2"
+                  className="bg-white/10 backdrop-blur-lg border border-white/20 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl hover:bg-white/20 transition-all flex items-center gap-2 text-sm sm:text-base"
                 >
-                  <span>📊</span> History
+                  <span>📊</span> <span className="hidden sm:inline">History</span>
                 </button>
-                <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 px-6 py-3 flex items-center gap-3">
+                <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 px-4 sm:px-6 py-2 sm:py-3 flex items-center gap-2 sm:gap-3">
                   <div>
-                    <div className="text-white/70 text-sm">Welcome back,</div>
-                    <div className="text-white font-semibold">{user?.username}</div>
+                    <div className="text-white/70 text-xs sm:text-sm">Welcome back,</div>
+                    <div className="text-white font-semibold text-sm sm:text-base">{user?.username}</div>
                   </div>
                   <button
                     onClick={() => {
                       logout();
                       window.location.reload();
                     }}
-                    className="text-white/60 hover:text-white text-sm transition-colors px-3 py-1 rounded-lg hover:bg-white/10"
+                    className="text-white/60 hover:text-white text-xs sm:text-sm transition-colors px-2 sm:px-3 py-1 rounded-lg hover:bg-white/10"
                   >
                     Logout
                   </button>
@@ -141,29 +141,30 @@ export default function Home() {
             ) : isClient ? (
               <button
                 onClick={() => router.push('/login')}
-                className="bg-white/10 backdrop-blur-lg border border-white/20 text-white px-6 py-3 rounded-xl hover:bg-white/20 transition-all flex items-center gap-2"
+                className="bg-white/10 backdrop-blur-lg border border-white/20 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl hover:bg-white/20 transition-all flex items-center gap-2 text-sm sm:text-base"
               >
-                <span>🔐</span> Login / Register
+                <span>🔐</span> <span className="hidden sm:inline">Login / Register</span>
               </button>
             ) : (
-              <div className="h-12 w-48 bg-white/10 rounded-xl animate-pulse" />
+              <div className="h-10 sm:h-12 w-32 sm:w-48 bg-white/10 rounded-xl animate-pulse" />
             )}
           </div>
 
-          <h1 className="text-6xl font-bold text-white mb-3 tracking-tight">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-2 sm:mb-3 tracking-tight">
             Game Room
           </h1>
-          <p className="text-xl text-purple-200">Play together, stay connected</p>
+          <p className="text-lg sm:text-xl text-purple-200 mb-2">Play together, stay connected</p>
+          <p className="text-xl sm:text-2xl text-pink-300 font-semibold italic">Āsheghetam ❤️</p>
           <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-lg rounded-full border border-white/20">
             <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'} animate-pulse`} />
-            <span className="text-white/90 text-sm">{isConnected ? 'Connected' : 'Connecting...'}</span>
+            <span className="text-white/90 text-xs sm:text-sm">{isConnected ? 'Connected' : 'Connecting...'}</span>
           </div>
         </div>
 
         {/* Main Content Card */}
-        <div className="bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 shadow-2xl p-8 mb-6 animate-slide-up">
+        <div className="bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 shadow-2xl p-4 sm:p-8 mb-6 animate-slide-up">
           {/* Player Name Input */}
-          <div className="mb-8">
+          <div className="mb-6 sm:mb-8">
             <label className="block text-white/90 text-sm font-medium mb-3">
               What's your name?
             </label>
@@ -172,37 +173,37 @@ export default function Home() {
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
               placeholder="Enter your name"
-              className="w-full px-6 py-4 bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+              className="w-full px-4 sm:px-6 py-3 sm:py-4 bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
               disabled={loading}
             />
           </div>
 
           {/* Game Selection */}
-          <div className="mb-8">
+          <div className="mb-6 sm:mb-8">
             <label className="block text-white/90 text-sm font-medium mb-4">
               Choose a game
             </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               {games.map((game) => (
                 <button
                   key={game.id}
                   onClick={() => setSelectedGame(game.id)}
-                  className={`group relative overflow-hidden rounded-2xl p-6 transition-all duration-300 transform hover:scale-105 ${
+                  className={`group relative overflow-hidden rounded-2xl p-4 sm:p-6 transition-all duration-300 transform active:scale-95 ${
                     selectedGame === game.id
                       ? 'ring-4 ring-white shadow-2xl scale-105'
-                      : 'hover:shadow-xl'
+                      : 'hover:shadow-xl active:shadow-2xl'
                   }`}
                 >
                   <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-90 group-hover:opacity-100 transition-opacity`}></div>
                   <div className="relative z-10">
-                    <div className="text-5xl mb-3 transform group-hover:scale-110 transition-transform">
+                    <div className="text-4xl sm:text-5xl mb-3 transform group-hover:scale-110 transition-transform">
                       {game.emoji}
                     </div>
-                    <h3 className="text-white font-bold text-lg mb-1">{game.name}</h3>
-                    <p className="text-white/80 text-sm">{game.description}</p>
+                    <h3 className="text-white font-bold text-base sm:text-lg mb-1">{game.name}</h3>
+                    <p className="text-white/80 text-xs sm:text-sm">{game.description}</p>
                   </div>
                   {selectedGame === game.id && (
-                    <div className="absolute top-3 right-3 w-6 h-6 bg-white rounded-full flex items-center justify-center">
+                    <div className="absolute top-2 sm:top-3 right-2 sm:right-3 w-6 h-6 bg-white rounded-full flex items-center justify-center">
                       <span className="text-purple-600 text-sm">✓</span>
                     </div>
                   )}
@@ -219,11 +220,11 @@ export default function Home() {
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <button
               onClick={handleCreateRoom}
               disabled={loading || !isConnected || !playerName || !selectedGame}
-              className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-4 px-8 rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-2xl"
+              className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-4 px-6 sm:px-8 rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95 shadow-lg text-base sm:text-lg"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -239,7 +240,7 @@ export default function Home() {
             </button>
             <button
               onClick={() => setShowJoinModal(true)}
-              className="flex-1 bg-white/10 backdrop-blur-lg border-2 border-white/30 text-white font-bold py-4 px-8 rounded-xl hover:bg-white/20 transition-all transform hover:scale-105 active:scale-95"
+              className="flex-1 bg-white/10 backdrop-blur-lg border-2 border-white/30 text-white font-bold py-4 px-6 sm:px-8 rounded-xl hover:bg-white/20 transition-all transform active:scale-95 text-base sm:text-lg"
             >
               🔗 Join Room
             </button>
@@ -247,16 +248,16 @@ export default function Home() {
         </div>
 
         {/* Features */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in-delay">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fade-in-delay">
           {[
             { icon: '⚡', title: 'Real-time Play', desc: 'Play together instantly' },
             { icon: '🎯', title: 'Turn-based Mode', desc: 'Play at your own pace' },
             { icon: '🔒', title: 'Private Rooms', desc: 'Secure room codes' },
           ].map((feature, i) => (
-            <div key={i} className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-6 hover:bg-white/10 transition-all">
-              <div className="text-4xl mb-3">{feature.icon}</div>
-              <h3 className="text-white font-semibold mb-1">{feature.title}</h3>
-              <p className="text-white/60 text-sm">{feature.desc}</p>
+            <div key={i} className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-4 sm:p-6 hover:bg-white/10 transition-all">
+              <div className="text-3xl sm:text-4xl mb-3">{feature.icon}</div>
+              <h3 className="text-white font-semibold mb-1 text-sm sm:text-base">{feature.title}</h3>
+              <p className="text-white/60 text-xs sm:text-sm">{feature.desc}</p>
             </div>
           ))}
         </div>
@@ -265,8 +266,8 @@ export default function Home() {
       {/* Join Room Modal */}
       {showJoinModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-800 rounded-3xl border border-white/20 p-8 max-w-md w-full shadow-2xl animate-slide-up">
-            <h2 className="text-2xl font-bold text-white mb-6">Join a Room</h2>
+          <div className="bg-slate-800 rounded-3xl border border-white/20 p-6 sm:p-8 max-w-md w-full shadow-2xl animate-slide-up">
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-6">Join a Room</h2>
             <form onSubmit={handleJoinRoom} className="space-y-4">
               <div>
                 <label className="block text-white/90 text-sm font-medium mb-2">
@@ -277,7 +278,7 @@ export default function Home() {
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
                   placeholder="Enter your name"
-                  className="w-full px-4 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 text-base"
                 />
               </div>
               <div>
@@ -289,11 +290,11 @@ export default function Home() {
                   value={roomCode}
                   onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                   placeholder="Enter 6-digit code"
-                  className="w-full px-4 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-white/50 uppercase focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-3 bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl text-white placeholder-white/50 uppercase focus:outline-none focus:ring-2 focus:ring-purple-500 text-base"
                   maxLength={6}
                 />
               </div>
-              <div className="flex gap-3 pt-4">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => setShowJoinModal(false)}

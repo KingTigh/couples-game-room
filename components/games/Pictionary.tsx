@@ -25,7 +25,6 @@ export default function Pictionary() {
   const me = room.players.find(p => p.id === playerId);
   const opponent = room.players.find(p => p.id !== playerId);
 
-  // Redraw canvas when drawing data changes
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -33,11 +32,9 @@ export default function Pictionary() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear canvas
     ctx.fillStyle = '#1e293b';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw all completed paths from server
     drawing.forEach((path: any) => {
       if (path.length < 2) return;
 
@@ -56,7 +53,6 @@ export default function Pictionary() {
       ctx.stroke();
     });
 
-    // Draw current path being drawn locally
     if (currentPath.length > 1) {
       ctx.strokeStyle = currentPath[0].color;
       ctx.lineWidth = currentPath[0].size;
@@ -74,19 +70,22 @@ export default function Pictionary() {
     }
   }, [drawing, currentPath]);
 
-  const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    
-    return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY
-    };
+const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement> | Touch) => {
+  const canvas = canvasRef.current;
+  if (!canvas) return { x: 0, y: 0 };
+  
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  
+  const clientX = e.clientX;
+  const clientY = e.clientY;
+  
+  return {
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY
   };
+};
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawer || isCorrect) return;
@@ -109,7 +108,6 @@ export default function Pictionary() {
     if (!isDrawing) return;
     setIsDrawing(false);
     
-    // Send completed path to server
     if (currentPath.length > 1 && room) {
       makeMove(room.code, {
         type: 'draw',
@@ -119,11 +117,53 @@ export default function Pictionary() {
     
     setCurrentPath([]);
   };
-
-  const clearCanvas = () => {
-    if (!isDrawer || !room) return;
-    makeMove(room.code, { type: 'clear' });
+const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+  if (!isDrawer || isCorrect) return;
+  e.preventDefault();
+  setIsDrawing(true);
+  
+  const touch = e.touches[0];
+  const canvas = canvasRef.current;
+  if (!canvas) return;
+  
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  
+  const coords = {
+    x: (touch.clientX - rect.left) * scaleX,
+    y: (touch.clientY - rect.top) * scaleY
   };
+  
+  const newPath = [{ ...coords, color, size: brushSize }];
+  setCurrentPath(newPath);
+};
+
+const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+  if (!isDrawing || !isDrawer || isCorrect) return;
+  e.preventDefault();
+  
+  const touch = e.touches[0];
+  const canvas = canvasRef.current;
+  if (!canvas) return;
+  
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  
+  const coords = {
+    x: (touch.clientX - rect.left) * scaleX,
+    y: (touch.clientY - rect.top) * scaleY
+  };
+  
+  const updatedPath = [...currentPath, { ...coords, color, size: brushSize }];
+  setCurrentPath(updatedPath);
+};
+
+const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+  e.preventDefault();
+  stopDrawing();
+};
 
   const submitGuess = (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,7 +182,6 @@ export default function Pictionary() {
     soundManager.play('gameStart');
     
     if (round >= maxRounds) {
-      // Game over
       setShowScores(true);
     } else {
       makeMove(room.code, { type: 'next-round' });
@@ -168,67 +207,67 @@ export default function Pictionary() {
   const opponentScore = opponent ? (scores?.[opponent.id] || 0) : 0;
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="bg-white/10 backdrop-blur-xl rounded-3xl border border-purple-500/30 shadow-2xl p-8">
+    <div className="max-w-6xl mx-auto px-4">
+      <div className="bg-white/10 backdrop-blur-xl rounded-3xl border border-purple-500/30 shadow-2xl p-4 sm:p-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
           <div>
-            <h2 className="text-3xl font-bold text-white flex items-center gap-3">
-              <span className="text-4xl">🎨</span>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+              <span className="text-3xl sm:text-4xl">🎨</span>
               Pictionary
             </h2>
-            <p className="text-purple-300">Round {round} of {maxRounds}</p>
+            <p className="text-purple-300 text-sm sm:text-base">Round {round} of {maxRounds}</p>
           </div>
-          <div className="text-right">
-            <div className="text-purple-300 text-sm mb-1">Time Left</div>
-            <div className={`text-3xl font-bold ${timeLeft < 30 ? 'text-red-400 animate-pulse' : 'text-white'}`}>
+          <div className="text-center">
+            <div className="text-purple-300 text-xs sm:text-sm mb-1">Time Left</div>
+            <div className={`text-2xl sm:text-3xl font-bold ${timeLeft < 30 ? 'text-red-400 animate-pulse' : 'text-white'}`}>
               {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
             </div>
           </div>
         </div>
 
         {/* Players & Scores */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className={`p-4 rounded-xl ${isDrawer ? 'bg-purple-500/30 border-2 border-purple-400/50' : 'bg-white/5 border border-white/10'}`}>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-6">
+          <div className={`p-3 sm:p-4 rounded-xl ${isDrawer ? 'bg-purple-500/30 border-2 border-purple-400/50' : 'bg-white/5 border border-white/10'}`}>
+            <div className="flex items-center gap-2 sm:gap-3 mb-2">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base">
                 {me?.name[0].toUpperCase()}
               </div>
-              <div>
-                <div className="text-white font-semibold">{me?.name}</div>
-                <div className="text-white/60 text-sm">
+              <div className="flex-1">
+                <div className="text-white font-semibold text-sm sm:text-base">{me?.name}</div>
+                <div className="text-white/60 text-xs sm:text-sm">
                   {isDrawer ? '🎨 Drawing' : '🤔 Guessing'}
                 </div>
               </div>
             </div>
-            <div className="text-2xl font-bold text-purple-300">{myScore} pts</div>
+            <div className="text-xl sm:text-2xl font-bold text-purple-300">{myScore} pts</div>
           </div>
 
-          <div className={`p-4 rounded-xl ${!isDrawer ? 'bg-purple-500/30 border-2 border-purple-400/50' : 'bg-white/5 border border-white/10'}`}>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold">
+          <div className={`p-3 sm:p-4 rounded-xl ${!isDrawer ? 'bg-purple-500/30 border-2 border-purple-400/50' : 'bg-white/5 border border-white/10'}`}>
+            <div className="flex items-center gap-2 sm:gap-3 mb-2">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base">
                 {opponent?.name[0].toUpperCase()}
               </div>
-              <div>
-                <div className="text-white font-semibold">{opponent?.name}</div>
-                <div className="text-white/60 text-sm">
+              <div className="flex-1">
+                <div className="text-white font-semibold text-sm sm:text-base">{opponent?.name}</div>
+                <div className="text-white/60 text-xs sm:text-sm">
                   {!isDrawer ? '🎨 Drawing' : '🤔 Guessing'}
                 </div>
               </div>
             </div>
-            <div className="text-2xl font-bold text-cyan-300">{opponentScore} pts</div>
+            <div className="text-xl sm:text-2xl font-bold text-cyan-300">{opponentScore} pts</div>
           </div>
         </div>
 
         {/* Prompt (only for drawer) */}
         {isDrawer && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl text-center">
-            <div className="text-white/80 text-sm mb-1">Draw this:</div>
-            <div className="text-white font-bold text-3xl uppercase tracking-wide">{prompt}</div>
+          <div className="mb-6 p-3 sm:p-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl text-center">
+            <div className="text-white/80 text-xs sm:text-sm mb-1">Draw this:</div>
+            <div className="text-white font-bold text-xl sm:text-3xl uppercase tracking-wide">{prompt}</div>
           </div>
         )}
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-4 sm:gap-6">
           {/* Canvas */}
           <div className="md:col-span-2">
             <div className="bg-slate-800 rounded-2xl overflow-hidden border-4 border-white/10">
@@ -240,20 +279,23 @@ export default function Pictionary() {
                 onMouseMove={draw}
                 onMouseUp={stopDrawing}
                 onMouseLeave={stopDrawing}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
                 className={`w-full ${isDrawer && !isCorrect ? 'cursor-crosshair' : 'cursor-not-allowed'}`}
-                style={{ touchAction: 'none' }}
+                style={{ touchAction: 'none', maxHeight: '400px' }}
               />
             </div>
 
             {/* Drawing Controls */}
             {isDrawer && !isCorrect && (
-              <div className="mt-4 flex gap-4 items-center">
-                <div className="flex gap-2">
+              <div className="mt-4 flex flex-col sm:flex-row gap-3 sm:gap-4 items-center">
+                <div className="flex gap-2 flex-wrap justify-center">
                   {['#FFFFFF', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#000000'].map((c) => (
                     <button
                       key={c}
                       onClick={() => setColor(c)}
-                      className={`w-10 h-10 rounded-full border-2 transition-transform ${
+                      className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 transition-transform active:scale-90 ${
                         color === c ? 'border-white scale-110' : 'border-white/30'
                       }`}
                       style={{ backgroundColor: c }}
@@ -267,13 +309,13 @@ export default function Pictionary() {
                   max="20"
                   value={brushSize}
                   onChange={(e) => setBrushSize(Number(e.target.value))}
-                  className="flex-1"
+                  className="flex-1 min-w-[120px]"
                 />
-                <span className="text-white text-sm w-12">{brushSize}px</span>
+                <span className="text-white text-xs sm:text-sm w-12 text-center">{brushSize}px</span>
                 
                 <button
                   onClick={clearCanvas}
-                  className="bg-red-500/20 border border-red-500/50 text-white px-4 py-2 rounded-xl hover:bg-red-500/30 transition-all"
+                  className="bg-red-500/20 border border-red-500/50 text-white px-3 sm:px-4 py-2 rounded-xl hover:bg-red-500/30 transition-all text-sm sm:text-base active:scale-95"
                 >
                   🗑️ Clear
                 </button>
@@ -284,13 +326,13 @@ export default function Pictionary() {
           {/* Guessing Area */}
           <div className="flex flex-col">
             <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-4 flex-1 flex flex-col">
-              <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
+              <h3 className="text-white font-semibold mb-3 flex items-center gap-2 text-sm sm:text-base">
                 💬 Guesses
               </h3>
               
-              <div className="flex-1 overflow-y-auto space-y-2 mb-4 max-h-64">
+              <div className="flex-1 overflow-y-auto space-y-2 mb-4 max-h-48 sm:max-h-64">
                 {guesses.map((g: string, i: number) => (
-                  <div key={i} className="bg-white/5 rounded-lg px-3 py-2 text-white text-sm">
+                  <div key={i} className="bg-white/5 rounded-lg px-3 py-2 text-white text-xs sm:text-sm">
                     {g}
                   </div>
                 ))}
@@ -298,17 +340,16 @@ export default function Pictionary() {
 
               {isCorrect ? (
                 <div className="bg-green-500/20 border-2 border-green-500/50 rounded-xl p-4 text-center">
-                  <div className="text-4xl mb-2">✅</div>
-                  <div className="text-green-400 font-bold text-lg mb-1">Correct!</div>
-                  <div className="text-white/80 text-sm mb-2">The word was: <span className="font-bold uppercase">{prompt}</span></div>
+                  <div className="text-3xl sm:text-4xl mb-2">✅</div>
+                  <div className="text-green-400 font-bold text-base sm:text-lg mb-1">Correct!</div>
+                  <div className="text-white/80 text-xs sm:text-sm">The word was: <span className="font-bold uppercase">{prompt}</span></div>
                   
-                  {/* Show points earned */}
                   {gameState.data.guessCount && gameState.data.pointsEarned && (
-                    <div className="mt-3 p-3 bg-white/10 rounded-lg">
+                    <div className="mt-3 p-2 sm:p-3 bg-white/10 rounded-lg">
                       <div className="text-white/70 text-xs mb-1">
                         Solved in {gameState.data.guessCount} {gameState.data.guessCount === 1 ? 'guess' : 'guesses'}!
                       </div>
-                      <div className="text-yellow-400 font-bold text-xl">
+                      <div className="text-yellow-400 font-bold text-lg sm:text-xl">
                         {isGuesser ? `+${gameState.data.pointsEarned}` : '+5'} pts
                       </div>
                       {gameState.data.guessCount === 1 && isGuesser && (
@@ -325,9 +366,9 @@ export default function Pictionary() {
                       <button
                         onClick={nextRound}
                         disabled={!isHost}
-                        className={`w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-3 px-4 rounded-xl transition-all ${
+                        className={`w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-3 px-4 rounded-xl transition-all text-sm sm:text-base ${
                           isHost 
-                            ? 'hover:from-purple-700 hover:to-pink-700 transform hover:scale-105' 
+                            ? 'hover:from-purple-700 hover:to-pink-700 active:scale-95' 
                             : 'opacity-50 cursor-not-allowed'
                         }`}
                       >
@@ -337,10 +378,10 @@ export default function Pictionary() {
                   )}
                   
                   {gameOver && (
-                    <div className="mt-4 space-y-2">
+                    <div className="mt-4">
                       <button
                         onClick={viewResults}
-                        className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold py-3 px-4 rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all transform hover:scale-105"
+                        className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold py-3 px-4 rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all active:scale-95 text-sm sm:text-base"
                       >
                         📊 View Results
                       </button>
@@ -354,17 +395,17 @@ export default function Pictionary() {
                     value={guess}
                     onChange={(e) => setGuess(e.target.value)}
                     placeholder="Type your guess..."
-                    className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="flex-1 px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm sm:text-base"
                   />
                   <button
                     type="submit"
-                    className="bg-purple-600 text-white px-6 py-2 rounded-xl hover:bg-purple-700 transition-all font-semibold"
+                    className="bg-purple-600 text-white px-4 sm:px-6 py-2 rounded-xl hover:bg-purple-700 transition-all font-semibold text-sm sm:text-base active:scale-95"
                   >
                     Send
                   </button>
                 </form>
               ) : (
-                <div className="text-center text-white/60 text-sm p-4 bg-white/5 rounded-xl">
+                <div className="text-center text-white/60 text-xs sm:text-sm p-4 bg-white/5 rounded-xl">
                   ⏳ Waiting for {opponent?.name} to guess...
                 </div>
               )}
@@ -376,48 +417,48 @@ export default function Pictionary() {
       {/* Scores Modal */}
       {showScores && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-800 rounded-3xl border border-purple-500/30 p-8 max-w-md w-full shadow-2xl">
-            <h2 className="text-3xl font-bold text-white mb-6 text-center">🏆 Final Results</h2>
+          <div className="bg-slate-800 rounded-3xl border border-purple-500/30 p-6 sm:p-8 max-w-md w-full shadow-2xl">
+            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-6 text-center">🏆 Final Results</h2>
             
             <div className="space-y-4 mb-6">
-              <div className={`p-6 rounded-2xl ${myScore > opponentScore ? 'bg-green-500/20 border-2 border-green-500/50' : myScore < opponentScore ? 'bg-red-500/20 border-2 border-red-500/50' : 'bg-yellow-500/20 border-2 border-yellow-500/50'}`}>
+              <div className={`p-4 sm:p-6 rounded-2xl ${myScore > opponentScore ? 'bg-green-500/20 border-2 border-green-500/50' : myScore < opponentScore ? 'bg-red-500/20 border-2 border-red-500/50' : 'bg-yellow-500/20 border-2 border-yellow-500/50'}`}>
                 <div className="text-center mb-2">
-                  <div className="text-5xl mb-2">
+                  <div className="text-4xl sm:text-5xl mb-2">
                     {myScore > opponentScore ? '🥇' : myScore < opponentScore ? '🥈' : '🤝'}
                   </div>
-                  <div className="text-white font-bold text-xl mb-1">{me?.name}</div>
-                  <div className="text-4xl font-bold text-white">{myScore} pts</div>
+                  <div className="text-white font-bold text-lg sm:text-xl mb-1">{me?.name}</div>
+                  <div className="text-3xl sm:text-4xl font-bold text-white">{myScore} pts</div>
                 </div>
               </div>
 
-              <div className={`p-6 rounded-2xl ${opponentScore > myScore ? 'bg-green-500/20 border-2 border-green-500/50' : opponentScore < myScore ? 'bg-red-500/20 border-2 border-red-500/50' : 'bg-yellow-500/20 border-2 border-yellow-500/50'}`}>
+              <div className={`p-4 sm:p-6 rounded-2xl ${opponentScore > myScore ? 'bg-green-500/20 border-2 border-green-500/50' : opponentScore < myScore ? 'bg-red-500/20 border-2 border-red-500/50' : 'bg-yellow-500/20 border-2 border-yellow-500/50'}`}>
                 <div className="text-center mb-2">
-                  <div className="text-5xl mb-2">
+                  <div className="text-4xl sm:text-5xl mb-2">
                     {opponentScore > myScore ? '🥇' : opponentScore < myScore ? '🥈' : '🤝'}
                   </div>
-                  <div className="text-white font-bold text-xl mb-1">{opponent?.name}</div>
-                  <div className="text-4xl font-bold text-white">{opponentScore} pts</div>
+                  <div className="text-white font-bold text-lg sm:text-xl mb-1">{opponent?.name}</div>
+                  <div className="text-3xl sm:text-4xl font-bold text-white">{opponentScore} pts</div>
                 </div>
               </div>
             </div>
 
             <div className="text-center mb-6">
-              <div className="text-2xl font-bold text-white mb-2">
+              <div className="text-xl sm:text-2xl font-bold text-white mb-2">
                 {myScore > opponentScore ? '🎉 You Won!' : myScore < opponentScore ? '😢 You Lost' : '🤝 It\'s a Tie!'}
               </div>
-              <div className="text-white/60">Great game!</div>
+              <div className="text-white/60 text-sm sm:text-base">Great game!</div>
             </div>
 
             <div className="space-y-3">
               {!isHost && (
-                <p className="text-white/60 text-sm text-center">👑 Waiting for host...</p>
+                <p className="text-white/60 text-xs sm:text-sm text-center">👑 Waiting for host...</p>
               )}
               <button
                 onClick={playAgain}
                 disabled={!isHost}
-                className={`w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-4 px-6 rounded-xl transition-all ${
+                className={`w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-3 sm:py-4 px-6 rounded-xl transition-all text-sm sm:text-base ${
                   isHost 
-                    ? 'hover:from-purple-700 hover:to-pink-700 transform hover:scale-105' 
+                    ? 'hover:from-purple-700 hover:to-pink-700 active:scale-95' 
                     : 'opacity-50 cursor-not-allowed'
                 }`}
               >
@@ -425,7 +466,7 @@ export default function Pictionary() {
               </button>
               <button
                 onClick={closeScores}
-                className="w-full bg-white/10 border border-white/20 text-white py-3 px-6 rounded-xl hover:bg-white/20 transition-all"
+                className="w-full bg-white/10 border border-white/20 text-white py-3 px-6 rounded-xl hover:bg-white/20 transition-all text-sm sm:text-base active:scale-95"
               >
                 Close
               </button>

@@ -1,4 +1,6 @@
 // @ts-nocheck
+// Deployed version with PostgreSQL support
+require('dotenv').config();
 const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
@@ -6,8 +8,14 @@ const { Server } = require('socket.io');
 const { nanoid } = require('nanoid');
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = '0.0.0.0'; // Changed for deployment
-const port = process.env.PORT || 3000; // Use Render's PORT
+const hostname = '0.0.0.0';
+const port = process.env.PORT || 3000;
+
+const app = next({ dev, hostname, port });
+const handle = app.getRequestHandler();
+
+const rooms = new Map();
+const gameStates = new Map();
 
 // Fisher-Yates shuffle algorithm
 function shuffleArray(array) {
@@ -18,13 +26,6 @@ function shuffleArray(array) {
   }
   return shuffled;
 }
-
-const app = next({ dev, hostname, port });
-const handle = app.getRequestHandler();
-
-// In-memory storage
-const rooms = new Map();
-const gameStates = new Map();
 
 app.prepare().then(() => {
   const server = createServer(async (req, res) => {
@@ -108,7 +109,6 @@ app.prepare().then(() => {
       const room = rooms.get(roomCode);
       if (!room) return;
 
-      // Only host can start game
       if (socket.id !== room.hostId) {
         console.log('Non-host tried to start game');
         return;
@@ -125,47 +125,44 @@ app.prepare().then(() => {
         data: initializeGameData(gameType, room.players),
       };
 
-    socket.on('restart-game', (roomCode) => {
-        const room = rooms.get(roomCode);
-        if (!room) return;
-
-        const gameType = room.currentGame;
-        const playMode = room.playMode;
-
-        if (!gameType || !playMode) return;
-
-        const gameState = {
-          gameType,
-          playMode,
-          currentTurn: room.players[0].id,
-          status: 'playing',
-          data: initializeGameData(gameType, room.players),
-        };
-
-        gameStates.set(roomCode, gameState);
-        io.to(roomCode).emit('game-started', gameState);
-        console.log(`Game restarted in room ${roomCode}: ${gameType}`);
-      });
-
       gameStates.set(roomCode, gameState);
       io.to(roomCode).emit('game-started', gameState);
       console.log(`Game started in room ${roomCode}: ${gameType}`);
+    });
+
+    socket.on('restart-game', (roomCode) => {
+      const room = rooms.get(roomCode);
+      if (!room) return;
+
+      const gameType = room.currentGame;
+      const playMode = room.playMode;
+
+      if (!gameType || !playMode) return;
+
+      const gameState = {
+        gameType,
+        playMode,
+        currentTurn: room.players[0].id,
+        status: 'playing',
+        data: initializeGameData(gameType, room.players),
+      };
+
+      gameStates.set(roomCode, gameState);
+      io.to(roomCode).emit('game-started', gameState);
+      console.log(`Game restarted in room ${roomCode}: ${gameType}`);
     });
 
     socket.on('end-game', (roomCode) => {
       const room = rooms.get(roomCode);
       if (!room) return;
 
-      // Only host can end game
       if (socket.id !== room.hostId) {
         console.log('Non-host tried to end game');
         return;
       }
 
-      // Clear game state
       gameStates.delete(roomCode);
       
-      // Notify all players to return to lobby
       io.to(roomCode).emit('game-ended');
       console.log(`Game ended in room ${roomCode} by host`);
     });
@@ -178,7 +175,6 @@ app.prepare().then(() => {
       updateGameState(gameState, moveData, room);
       io.to(roomCode).emit('game-updated', gameState);
 
-      // Check if game finished
       if (gameState.status === 'finished') {
         const score = {
           gameType: gameState.gameType,
@@ -218,19 +214,16 @@ app.prepare().then(() => {
     });
   });
 
-  // Timer countdown system
   setInterval(() => {
     gameStates.forEach((gameState, roomCode) => {
       if (gameState.status === 'playing' && gameState.gameType === 'drawing') {
         if (gameState.data.timeLeft > 0 && !gameState.data.isCorrect) {
           gameState.data.timeLeft -= 1;
           
-          // Emit updated game state
           io.to(roomCode).emit('game-updated', gameState);
           
-          // Time's up
           if (gameState.data.timeLeft === 0) {
-            gameState.data.isCorrect = true; // Force round end
+            gameState.data.isCorrect = true;
           }
         }
       }
@@ -254,7 +247,6 @@ function initializeGameData(gameType, players) {
       };
       
     case 'drawing':
-      // Randomly assign drawer and guesser
       const drawerIndex = Math.floor(Math.random() * 2);
       return {
         prompt: getRandomDrawingPrompt(),
@@ -290,7 +282,7 @@ function initializeGameData(gameType, players) {
         answers: {},
         revealed: false,
       };
-          
+      
     default:
       return {};
   }
@@ -302,7 +294,6 @@ function updateGameState(gameState, moveData, room) {
       if (moveData.position !== undefined) {
         gameState.data.board[moveData.position] = gameState.data.currentPlayer;
         
-        // Check for winner BEFORE switching players
         const winner = checkTicTacToeWinner(gameState.data.board);
         if (winner) {
           gameState.data.winner = winner;
@@ -315,132 +306,124 @@ function updateGameState(gameState, moveData, room) {
           gameState.winner = null;
           console.log('Tic-Tac-Toe ended in a draw');
         } else {
-          // Only switch player if game continues
           gameState.data.currentPlayer = gameState.data.currentPlayer === 'X' ? 'O' : 'X';
         }
       }
       break;
     
-case 'drawing':
-  if (moveData.type === 'draw') {
-    gameState.data.drawing.push(moveData.path);
-} else if (moveData.type === 'guess') {
-  gameState.data.guesses.push(moveData.guess);
-  
-  const guessLower = moveData.guess.toLowerCase().trim();
-  const promptLower = gameState.data.prompt.toLowerCase().trim();
-  
-  // Exact match only - no partial matches
-  if (guessLower === promptLower) {
-    gameState.data.isCorrect = true;
-    
-    // Award points based on number of guesses (fewer guesses = more points)
-    if (gameState.data.scores && moveData.playerId) {
-      const guessCount = gameState.data.guesses.length;
-      let guesserPoints = 10; // Base points
-      
-      // Bonus points for fewer guesses
-      if (guessCount === 1) {
-        guesserPoints = 20; // First try bonus!
-      } else if (guessCount === 2) {
-        guesserPoints = 15; // Second try
-      } else if (guessCount === 3) {
-        guesserPoints = 12; // Third try
-      } else if (guessCount <= 5) {
-        guesserPoints = 10; // 4-5 tries
-      } else {
-        guesserPoints = 8; // More than 5 tries
+    case 'drawing':
+      if (moveData.type === 'draw') {
+        gameState.data.drawing.push(moveData.path);
+      } else if (moveData.type === 'guess') {
+        gameState.data.guesses.push(moveData.guess);
+        
+        const guessLower = moveData.guess.toLowerCase().trim();
+        const promptLower = gameState.data.prompt.toLowerCase().trim();
+        
+        if (guessLower === promptLower) {
+          gameState.data.isCorrect = true;
+          
+          if (gameState.data.scores && moveData.playerId) {
+            const guessCount = gameState.data.guesses.length;
+            let guesserPoints = 10;
+            
+            if (guessCount === 1) {
+              guesserPoints = 20;
+            } else if (guessCount === 2) {
+              guesserPoints = 15;
+            } else if (guessCount === 3) {
+              guesserPoints = 12;
+            } else if (guessCount <= 5) {
+              guesserPoints = 10;
+            } else {
+              guesserPoints = 8;
+            }
+            
+            gameState.data.scores[moveData.playerId] = (gameState.data.scores[moveData.playerId] || 0) + guesserPoints;
+            gameState.data.scores[gameState.data.drawer] = (gameState.data.scores[gameState.data.drawer] || 0) + 5;
+            
+            gameState.data.guessCount = guessCount;
+            gameState.data.pointsEarned = guesserPoints;
+          }
+        }
+      } else if (moveData.type === 'clear') {
+        gameState.data.drawing = [];
+      } else if (moveData.type === 'next-round') {
+        gameState.data.round += 1;
+        
+        if (gameState.data.round > gameState.data.maxRounds) {
+          gameState.status = 'finished';
+          const player1Score = gameState.data.scores[room.players[0].id] || 0;
+          const player2Score = gameState.data.scores[room.players[1].id] || 0;
+          
+          if (player1Score > player2Score) {
+            gameState.winner = room.players[0].id;
+          } else if (player2Score > player1Score) {
+            gameState.winner = room.players[1].id;
+          } else {
+            gameState.winner = null;
+          }
+        } else {
+          const currentDrawer = gameState.data.drawer;
+          const currentGuesser = gameState.data.guesser;
+          
+          gameState.data.drawer = currentGuesser;
+          gameState.data.guesser = currentDrawer;
+          gameState.data.prompt = getRandomDrawingPrompt();
+          gameState.data.drawing = [];
+          gameState.data.guesses = [];
+          gameState.data.isCorrect = false;
+          gameState.data.timeLeft = 120;
+        }
       }
-      
-      // Award points
-      gameState.data.scores[moveData.playerId] = (gameState.data.scores[moveData.playerId] || 0) + guesserPoints;
-      gameState.data.scores[gameState.data.drawer] = (gameState.data.scores[gameState.data.drawer] || 0) + 5; // Drawer always gets 5
-      
-      // Store the guess count for display
-      gameState.data.guessCount = guessCount;
-      gameState.data.pointsEarned = guesserPoints;
-    }
-  }
-} else if (moveData.type === 'clear') {
-    gameState.data.drawing = [];
-  } else if (moveData.type === 'next-round') {
-    gameState.data.round += 1;
-    
-    if (gameState.data.round > gameState.data.maxRounds) {
-      gameState.status = 'finished';
-      const player1Score = gameState.data.scores[room.players[0].id] || 0;
-      const player2Score = gameState.data.scores[room.players[1].id] || 0;
-      
-      if (player1Score > player2Score) {
-        gameState.winner = room.players[0].id;
-      } else if (player2Score > player1Score) {
-        gameState.winner = room.players[1].id;
-      } else {
-        gameState.winner = null;
-      }
-    } else {
-      const currentDrawer = gameState.data.drawer;
-      const currentGuesser = gameState.data.guesser;
-      
-      gameState.data.drawer = currentGuesser;
-      gameState.data.guesser = currentDrawer;
-      gameState.data.prompt = getRandomDrawingPrompt();
-      gameState.data.drawing = [];
-      gameState.data.guesses = [];
-      gameState.data.isCorrect = false;
-      gameState.data.timeLeft = 120;
-    }
-  }
-  break;
+      break;
 
-case 'would-you-rather':
-  if (moveData.answer) {
-    gameState.data.answers[moveData.playerId] = moveData.answer;
-    if (Object.keys(gameState.data.answers).length >= 2) {
-      gameState.data.revealed = true;
-    }
-  } else if (moveData.type === 'next-question') {
-    gameState.data.currentQuestionIndex++;
-    
-    if (gameState.data.currentQuestionIndex >= gameState.data.questions.length) {
-      // Game over - all questions answered
-      gameState.status = 'finished';
-      gameState.winner = null; // No winner in Would You Rather, it's just for fun
-    } else {
-      // Move to next question
-      gameState.data.answers = {};
-      gameState.data.revealed = false;
-    }
-  }
-  break;
-
-case 'trivia':
-  if (moveData.answer) {
-    const currentQ = gameState.data.questions[gameState.data.currentQuestionIndex];
-    gameState.data.answers[moveData.playerId] = moveData.answer;
-    
-    if (moveData.answer === currentQ.correctAnswer) {
-      gameState.data.scores[moveData.playerId] = (gameState.data.scores[moveData.playerId] || 0) + 10;
-    }
-  } else if (moveData.type === 'next-question') {
-    gameState.data.currentQuestionIndex++;
-    gameState.data.answers = {};
-    
-    if (gameState.data.currentQuestionIndex >= gameState.data.questions.length) {
-      gameState.status = 'finished';
-      const player1Score = gameState.data.scores[room.players[0].id] || 0;
-      const player2Score = gameState.data.scores[room.players[1].id] || 0;
-      
-      if (player1Score > player2Score) {
-        gameState.winner = room.players[0].id;
-      } else if (player2Score > player1Score) {
-        gameState.winner = room.players[1].id;
-      } else {
-        gameState.winner = null;
+    case 'would-you-rather':
+      if (moveData.answer) {
+        gameState.data.answers[moveData.playerId] = moveData.answer;
+        if (Object.keys(gameState.data.answers).length >= 2) {
+          gameState.data.revealed = true;
+        }
+      } else if (moveData.type === 'next-question') {
+        gameState.data.currentQuestionIndex++;
+        
+        if (gameState.data.currentQuestionIndex >= gameState.data.questions.length) {
+          gameState.status = 'finished';
+          gameState.winner = null;
+        } else {
+          gameState.data.answers = {};
+          gameState.data.revealed = false;
+        }
       }
-    }
-  }
-  break;
+      break;
+
+    case 'trivia':
+      if (moveData.answer) {
+        const currentQ = gameState.data.questions[gameState.data.currentQuestionIndex];
+        gameState.data.answers[moveData.playerId] = moveData.answer;
+        
+        if (moveData.answer === currentQ.correctAnswer) {
+          gameState.data.scores[moveData.playerId] = (gameState.data.scores[moveData.playerId] || 0) + 10;
+        }
+      } else if (moveData.type === 'next-question') {
+        gameState.data.currentQuestionIndex++;
+        gameState.data.answers = {};
+        
+        if (gameState.data.currentQuestionIndex >= gameState.data.questions.length) {
+          gameState.status = 'finished';
+          const player1Score = gameState.data.scores[room.players[0].id] || 0;
+          const player2Score = gameState.data.scores[room.players[1].id] || 0;
+          
+          if (player1Score > player2Score) {
+            gameState.winner = room.players[0].id;
+          } else if (player2Score > player1Score) {
+            gameState.winner = room.players[1].id;
+          } else {
+            gameState.winner = null;
+          }
+        }
+      }
+      break;
   }
 }
 
@@ -531,6 +514,66 @@ function getSampleTriviaQuestions() {
       correctAnswer: 'Cheetah',
       category: 'Nature',
     },
+    {
+      question: 'How many continents are there?',
+      options: ['5', '6', '7', '8'],
+      correctAnswer: '7',
+      category: 'Geography',
+    },
+    {
+      question: 'What is the tallest mountain in the world?',
+      options: ['K2', 'Mount Everest', 'Kilimanjaro', 'Denali'],
+      correctAnswer: 'Mount Everest',
+      category: 'Geography',
+    },
+    {
+      question: 'What is the speed of light?',
+      options: ['299,792 km/s', '150,000 km/s', '500,000 km/s', '100,000 km/s'],
+      correctAnswer: '299,792 km/s',
+      category: 'Science',
+    },
+    {
+      question: 'Who invented the telephone?',
+      options: ['Thomas Edison', 'Alexander Graham Bell', 'Nikola Tesla', 'Benjamin Franklin'],
+      correctAnswer: 'Alexander Graham Bell',
+      category: 'History',
+    },
+    {
+      question: 'What is the largest organ in the human body?',
+      options: ['Heart', 'Brain', 'Liver', 'Skin'],
+      correctAnswer: 'Skin',
+      category: 'Science',
+    },
+    {
+      question: 'How many bones are in the adult human body?',
+      options: ['186', '206', '226', '246'],
+      correctAnswer: '206',
+      category: 'Science',
+    },
+    {
+      question: 'What year did the Titanic sink?',
+      options: ['1910', '1912', '1914', '1916'],
+      correctAnswer: '1912',
+      category: 'History',
+    },
+    {
+      question: 'What is the currency of Japan?',
+      options: ['Yuan', 'Won', 'Yen', 'Ringgit'],
+      correctAnswer: 'Yen',
+      category: 'Geography',
+    },
+    {
+      question: 'How many players are on a soccer team?',
+      options: ['9', '10', '11', '12'],
+      correctAnswer: '11',
+      category: 'Sports',
+    },
+    {
+      question: 'What is the boiling point of water in Celsius?',
+      options: ['90°C', '100°C', '110°C', '120°C'],
+      correctAnswer: '100°C',
+      category: 'Science',
+    },
   ];
   
   return shuffleArray(allQuestions);
@@ -548,5 +591,15 @@ function getAllWouldYouRatherQuestions() {
     { question: 'Would you rather...', optionA: 'Live in a world without problems', optionB: 'Live in a world where you solve all problems' },
     { question: 'Would you rather...', optionA: 'Be famous but poor', optionB: 'Be rich but unknown' },
     { question: 'Would you rather...', optionA: 'Explore space', optionB: 'Explore the ocean depths' },
+    { question: 'Would you rather...', optionA: 'Always say what you think', optionB: 'Never speak again' },
+    { question: 'Would you rather...', optionA: 'Have a rewind button', optionB: 'Have a pause button for your life' },
+    { question: 'Would you rather...', optionA: 'Live without heating', optionB: 'Live without air conditioning' },
+    { question: 'Would you rather...', optionA: 'Be the funniest person', optionB: 'Be the smartest person' },
+    { question: 'Would you rather...', optionA: 'Find true love', optionB: 'Win the lottery' },
+    { question: 'Would you rather...', optionA: 'Never have to sleep', optionB: 'Never have to eat' },
+    { question: 'Would you rather...', optionA: 'Be able to talk to animals', optionB: 'Speak all human languages' },
+    { question: 'Would you rather...', optionA: 'Live in the city', optionB: 'Live in the countryside' },
+    { question: 'Would you rather...', optionA: 'Always be too hot', optionB: 'Always be too cold' },
+    { question: 'Would you rather...', optionA: 'Have a personal chef', optionB: 'Have a personal chauffeur' },
   ];
 }
