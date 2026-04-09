@@ -70,28 +70,25 @@ export default function Pictionary() {
     }
   }, [drawing, currentPath]);
 
-const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement> | Touch) => {
-  const canvas = canvasRef.current;
-  if (!canvas) return { x: 0, y: 0 };
-  
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-  
-  const clientX = e.clientX;
-  const clientY = e.clientY;
-  
-  return {
-    x: (clientX - rect.left) * scaleX,
-    y: (clientY - rect.top) * scaleY
+  const getCanvasCoords = (clientX: number, clientY: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
+    };
   };
-};
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawer || isCorrect) return;
     setIsDrawing(true);
     
-    const coords = getCanvasCoords(e);
+    const coords = getCanvasCoords(e.clientX, e.clientY);
     const newPath = [{ ...coords, color, size: brushSize }];
     setCurrentPath(newPath);
   };
@@ -99,7 +96,7 @@ const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement> | Touch) => {
   const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing || !isDrawer || isCorrect) return;
     
-    const coords = getCanvasCoords(e);
+    const coords = getCanvasCoords(e.clientX, e.clientY);
     const updatedPath = [...currentPath, { ...coords, color, size: brushSize }];
     setCurrentPath(updatedPath);
   };
@@ -117,53 +114,37 @@ const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement> | Touch) => {
     
     setCurrentPath([]);
   };
-const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
-  if (!isDrawer || isCorrect) return;
-  e.preventDefault();
-  setIsDrawing(true);
-  
-  const touch = e.touches[0];
-  const canvas = canvasRef.current;
-  if (!canvas) return;
-  
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-  
-  const coords = {
-    x: (touch.clientX - rect.left) * scaleX,
-    y: (touch.clientY - rect.top) * scaleY
-  };
-  
-  const newPath = [{ ...coords, color, size: brushSize }];
-  setCurrentPath(newPath);
-};
 
-const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
-  if (!isDrawing || !isDrawer || isCorrect) return;
-  e.preventDefault();
-  
-  const touch = e.touches[0];
-  const canvas = canvasRef.current;
-  if (!canvas) return;
-  
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-  
-  const coords = {
-    x: (touch.clientX - rect.left) * scaleX,
-    y: (touch.clientY - rect.top) * scaleY
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawer || isCorrect) return;
+    e.preventDefault();
+    setIsDrawing(true);
+    
+    const touch = e.touches[0];
+    const coords = getCanvasCoords(touch.clientX, touch.clientY);
+    const newPath = [{ ...coords, color, size: brushSize }];
+    setCurrentPath(newPath);
   };
-  
-  const updatedPath = [...currentPath, { ...coords, color, size: brushSize }];
-  setCurrentPath(updatedPath);
-};
 
-const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
-  e.preventDefault();
-  stopDrawing();
-};
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing || !isDrawer || isCorrect) return;
+    e.preventDefault();
+    
+    const touch = e.touches[0];
+    const coords = getCanvasCoords(touch.clientX, touch.clientY);
+    const updatedPath = [...currentPath, { ...coords, color, size: brushSize }];
+    setCurrentPath(updatedPath);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    stopDrawing();
+  };
+
+  const clearCanvas = () => {
+    if (!isDrawer || !room) return;
+    makeMove(room.code, { type: 'clear' });
+  };
 
   const submitGuess = (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,25 +1,5 @@
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --background: 222.2 84% 4.9%;
-      --foreground: 210 40% 98%;
-    }
-  }
-}
-
-@layer base {
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-
 @layer utilities {
   .animate-fade-in {
     animation: fadeIn 0.5s ease-in;
@@ -95,38 +75,38 @@
       transform: translateX(5px);
     }
   }
+}
 
-  /* Mobile touch improvements */
-  @media (max-width: 768px) {
-    * {
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    button, a, input, select, textarea {
-      touch-action: manipulation;
-    }
-
-    /* Prevent zoom on input focus */
-    input, select, textarea {
-      font-size: 16px !important;
-    }
-
-    /* Better spacing on mobile */
-    .container {
-      padding-left: 1rem;
-      padding-right: 1rem;
-    }
+/* Mobile touch improvements */
+@media (max-width: 768px) {
+  * {
+    -webkit-tap-highlight-color: transparent;
   }
 
-  /* Smooth scrolling */
-  html {
-    scroll-behavior: smooth;
+  button, a, input, select, textarea {
+    touch-action: manipulation;
   }
 
-  /* Fix for iOS Safari bottom bar */
-  @supports (-webkit-touch-callout: none) {
-    .min-h-screen {
-      min-height: -webkit-fill-available;
-    }
+  /* Prevent zoom on input focus */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  /* Better spacing on mobile */
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Fix for iOS Safari bottom bar */
+@supports (-webkit-touch-callout: none) {
+  .min-h-screen {
+    min-height: -webkit-fill-available;
   }
 }
